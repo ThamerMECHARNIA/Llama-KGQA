@@ -17,7 +17,7 @@ if __name__ == '__main__':
         sys.exit(-1)
 
     # Path to the fine-tuned model
-    model_id = "./Llama-KGQA/llama_kgqa.llama.model"
+    model_id = "./Llama-KGQA/llama_kgqa.model"
 
     # Quantization config
     torch_dtype = torch.float16

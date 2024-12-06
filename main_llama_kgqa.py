@@ -47,8 +47,8 @@ epochs_val = 6
 
 MODEL_NAME = "Llama-KGQA"
 RESULTS_DIR = MODEL_NAME + "/"
-output_model_name = RESULTS_DIR + "llama_kgqa.llama.model"
-fine_tuned_model_path = RESULTS_DIR + "adapter_model.llama.model"
+output_model_name = RESULTS_DIR + "llama_kgqa.model"
+fine_tuned_model_path = RESULTS_DIR + "adapter.llama.model"
 
 
 # Load environment variables from the .env file
