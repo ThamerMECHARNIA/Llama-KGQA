@@ -1,1 +1,5 @@
 .env
+Llama-2-7b_results/
+Llama-3-8b_results/
+Llama-3-70b_results/
+Mixtral-7b_results/
