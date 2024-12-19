@@ -9,6 +9,25 @@ from transformers import (
 )
 import torch, sys
 from trl import setup_chat_format
+from SPARQLWrapper import SPARQLWrapper, JSON, SPARQLExceptions
+
+ENDPOINT = 'https://dbpedia.org/sparql'
+WRONG_QUERY_MAX = 10
+
+
+def querying(query):
+    sparql = SPARQLWrapper(ENDPOINT)
+    sparql.setQuery(query)
+    sparql.setReturnFormat(JSON)
+    try:
+        qres = sparql.query().convert()
+        if not qres.get("results", {}).get("bindings"):  # Check if results are empty
+            return ("no_results", None)
+        return ("success", qres)
+    except SPARQLExceptions.QueryBadFormed as e:
+        return ("syntax_error", str(e))
+    except Exception as e:
+        return ("error", str(e))
 
 
 if __name__ == '__main__':
@@ -51,18 +70,43 @@ if __name__ == '__main__':
         }
     ]
 
-    prompt = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+    wrong_queries_count = 0
+    translation_ended = False
+    while not translation_ended and wrong_queries_count < WRONG_QUERY_MAX:
+        prompt = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
 
-    inputs = tokenizer(prompt, return_tensors='pt', padding=True, truncation=True).to("cuda")
+        inputs = tokenizer(prompt, return_tensors='pt', padding=True, truncation=True).to("cuda")
 
-    terminators = [
-        tokenizer.eos_token_id,
-        tokenizer.convert_tokens_to_ids("<|eot_id|>")
-    ]
+        terminators = [
+            tokenizer.eos_token_id,
+            tokenizer.convert_tokens_to_ids("<|eot_id|>")
+        ]
 
-    outputs = model.generate(**inputs, num_return_sequences=1, eos_token_id=terminators, max_new_tokens=256,
-                             do_sample=True, temperature=0.6, top_p=0.9)  # , max_length=150
+        outputs = model.generate(**inputs, num_return_sequences=1, eos_token_id=terminators, max_new_tokens=256,
+                                 do_sample=True, temperature=0.6, top_p=0.9)  # , max_length=150
 
-    text = tokenizer.decode(outputs[0], skip_special_tokens=True)
+        text = tokenizer.decode(outputs[0], skip_special_tokens=True)
 
-    print(text.split("assistant")[1])
+        generated_query = text.split("assistant")[1]
+
+        print(f"Generated Query {wrong_queries_count}:", generated_query)
+
+        status, result = querying(generated_query)
+
+        if status not in {"syntax_error", "error"}:
+            translation_ended = True
+        else:
+            wrong_queries_count += 1
+
+        if status == "success":
+            print("Query succeeded with results:", result)
+        elif status == "no_results":
+            print("Query succeeded but returned no results.")
+        elif status == "syntax_error":
+            print("Query failed due to a syntax error:", result)
+            if wrong_queries_count < WRONG_QUERY_MAX:
+                print("Trying again ...")
+        elif status == "error":
+            print("Query failed due to an error:", result)
+            if wrong_queries_count < WRONG_QUERY_MAX:
+                print("Trying again ...")
